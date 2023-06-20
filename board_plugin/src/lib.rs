@@ -1,3 +1,4 @@
+use bevy::ecs::schedule::StateData;
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy::log;
@@ -19,8 +20,6 @@ use crate::events::TileTriggerEvent;
 use crate::resources::Board;
 use crate::resources::BoardPosition;
 use crate::resources::TileSize;
-use crate::systems::uncover::trigger_event_handler;
-use crate::systems::uncover::uncover_tiles;
 
 pub mod components;
 pub mod resources;
@@ -28,15 +27,32 @@ mod bounds;
 mod systems;
 mod events;
 
-pub struct BoardPlugin;
+pub struct BoardPlugin<T> {
+    pub running_state: T
+}
 
-impl Plugin for BoardPlugin {
+impl<T: StateData> Plugin for BoardPlugin<T> {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(Self::create_board)
-            .add_system(systems::input::input_handling)
-            .add_system(trigger_event_handler)
-            .add_system(uncover_tiles)
-            .add_event::<TileTriggerEvent>();
+        // When the running states comes into the stack we load a board
+        app.add_system_set(
+            SystemSet::on_enter(self.running_state.clone()).with_system(Self::create_board),
+        )
+        // We handle input and trigger events only if the state is active
+        .add_system_set(
+            SystemSet::on_update(self.running_state.clone())
+                .with_system(systems::input::input_handling)
+                .with_system(systems::uncover::trigger_event_handler),
+        )
+        // We handle uncovering even if the state is inactive
+        .add_system_set(
+            SystemSet::on_in_stack_update(self.running_state.clone())
+                .with_system(systems::uncover::uncover_tiles),
+        )
+        .add_system_set(
+            SystemSet::on_exit(self.running_state.clone())
+                .with_system(Self::cleanup_board),
+        )
+        .add_event::<TileTriggerEvent>();
 
         #[cfg(feature = "debug")]
         {
@@ -51,7 +67,7 @@ impl Plugin for BoardPlugin {
     }
 }
 
-impl BoardPlugin {
+impl<T> BoardPlugin<T> {
     pub fn create_board(
         mut commands: Commands,
         board_options: Option<Res<BoardOptions>>,
@@ -98,7 +114,7 @@ impl BoardPlugin {
             BoardPosition::Custom(p) => p
         };
 
-        commands.spawn()
+        let board_entity = commands.spawn()
                 .with_children(|parent| {
                     // We spawn the board background sprite at the center of the board, since the sprite pivot is centered
                     parent.spawn_bundle(SpriteBundle {
@@ -128,23 +144,25 @@ impl BoardPlugin {
                         &mut covered_tiles,
                         &mut safe_start
                     );
-                });
+                })
+                .id();
 
-                commands.insert_resource(Board {
-                    tile_map,
-                    bounds: Bounds2 {
-                        position: board_position.xy(),
-                        size: board_size
-                    },
-                    tile_size,
-                    covered_tiles
-                });
+        commands.insert_resource(Board {
+            tile_map,
+            bounds: Bounds2 {
+                position: board_position.xy(),
+                size: board_size
+            },
+            tile_size,
+            covered_tiles,
+            entity: board_entity,
+        });
 
-                if options.safe_start {
-                    if let Some(entity) = safe_start {
-                        commands.entity(entity).insert(Uncover);
-                    }
-                }
+        if options.safe_start {
+            if let Some(entity) = safe_start {
+                commands.entity(entity).insert(Uncover);
+            }
+        }
     }
 
     fn spawn_tiles(
@@ -280,5 +298,10 @@ impl BoardPlugin {
             transform: Transform::from_xyz(0.0, 0.0, 1.0),
             ..Default::default()
         }
+    }
+
+    fn cleanup_board(board: Res<Board>, mut commands: Commands) {
+        commands.entity(board.entity).despawn_recursive();
+        commands.remove_resource::<Board>();
     }
 }
