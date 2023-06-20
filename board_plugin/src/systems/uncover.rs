@@ -1,12 +1,14 @@
 use bevy::{prelude::*, log};
 
-use crate::{resources::Board, events::TileTriggerEvent, components::{Uncover, Coordinates, Bomb, BombNeighbor}};
+use crate::{resources::{Board, paused::Paused}, events::TileTriggerEvent, components::{Uncover, Coordinates, Bomb, BombNeighbor}};
 
 pub fn trigger_event_handler(
     mut commands: Commands,
     board: Res<Board>,
     mut tile_trigger_evr: EventReader<TileTriggerEvent>,
+    paused: Res<Paused>
 ) {
+    if paused.0 == true { return; }
     for event in tile_trigger_evr.iter() {
         if let Some(entity) = board.tile_to_uncover(&event.0) {
             commands.entity(*entity).insert(Uncover);

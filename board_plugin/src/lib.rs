@@ -28,7 +28,8 @@ mod systems;
 mod events;
 
 pub struct BoardPlugin<T> {
-    pub running_state: T
+    pub running_state: T,
+    pub out_state: T,
 }
 
 impl<T: StateData> Plugin for BoardPlugin<T> {
@@ -49,7 +50,7 @@ impl<T: StateData> Plugin for BoardPlugin<T> {
                 .with_system(systems::uncover::uncover_tiles),
         )
         .add_system_set(
-            SystemSet::on_exit(self.running_state.clone())
+            SystemSet::on_enter(self.out_state.clone())
                 .with_system(Self::cleanup_board),
         )
         .add_event::<TileTriggerEvent>();

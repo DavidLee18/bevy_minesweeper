@@ -1,6 +1,7 @@
 pub(crate) mod tile;
 
 pub(crate) mod tile_map;
+pub mod paused;
 
 pub use board::Board;
 

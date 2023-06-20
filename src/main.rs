@@ -2,13 +2,16 @@ use bevy::{prelude::*, log};
 
 #[cfg(feature="debug")]
 use bevy_inspector_egui::WorldInspectorPlugin;
-use board_plugin::{BoardPlugin, resources::BoardOptions};
+use board_plugin::{BoardPlugin, resources::{BoardOptions, paused::Paused}};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum AppState {
     InGame,
     Out,
 }
+
+#[derive(Debug, Clone, Copy)]
+pub struct RestartEvent;
 
 fn main() {
     let mut app = App::new();
@@ -27,15 +30,19 @@ fn main() {
         ..Default::default()
     })
     .add_state(AppState::InGame)
+    .insert_resource(Paused(false))
     .add_plugin(BoardPlugin {
         running_state: AppState::InGame,
-    });
+        out_state: AppState::Out,
+    })
+    .add_event::<RestartEvent>();
 
     #[cfg(feature="debug")]
     app.add_plugin(WorldInspectorPlugin::new());
 
     app.add_startup_system(camera_setup)
        .add_system(state_handler)
+       .add_system(restart)
        .run();
 }
 
@@ -43,19 +50,43 @@ fn camera_setup(mut commands: Commands) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 }
 
-fn state_handler(mut state: ResMut<State<AppState>>, keys: Res<Input<KeyCode>>) {
-    if keys.just_pressed(KeyCode::C) {
-        log::debug!("clearing detected");
-        if state.current() == &AppState::InGame {
-            log::info!("clearing game");
-            state.set(AppState::Out).unwrap();
+fn state_handler(
+    mut state: ResMut<State<AppState>>,
+    keys: Res<Input<KeyCode>>,
+    mut writer: EventWriter<RestartEvent>,
+    mut paused: ResMut<Paused>
+) {
+    if keys.just_pressed(KeyCode::Escape) {
+        log::debug!("pressing `Escape` detected");
+        if state.current() != &AppState::InGame { return; }
+        if !paused.0 {
+            log::info!("pausing game");
+            paused.0 = true;
+        } else {
+            log::info!("resuming game");
+            paused.0 = false;
         }
     }
     if keys.just_pressed(KeyCode::G) {
-        log::debug!("loading detected");
+        log::debug!("pressing `G` detected");
+        log::info!("generating new board");
+        match state.current() {
+            &AppState::Out => {
+                state.set(AppState::InGame).unwrap();
+            }
+            _ => {
+                state.set(AppState::Out).unwrap();
+                writer.send(RestartEvent);
+            }
+        }
+    }
+}
+
+fn restart(mut reader: EventReader<RestartEvent>, mut state: ResMut<State<AppState>>) {
+    for _event in reader.iter() {
         if state.current() == &AppState::Out {
-            log::info!("loading game");
             state.set(AppState::InGame).unwrap();
+            break;
         }
     }
 }

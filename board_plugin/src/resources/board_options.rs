@@ -32,7 +32,8 @@ pub struct BoardOptions {
     pub position: BoardPosition,
     pub tile_size: TileSize,
     pub tile_padding: f32,
-    pub safe_start: bool
+    pub safe_start: bool,
+    pub restart: bool
 }
 
 impl Default for BoardOptions {
@@ -43,7 +44,8 @@ impl Default for BoardOptions {
             position: Default::default(),
             tile_size: Default::default(),
             tile_padding: 0.0,
-            safe_start: false
+            safe_start: false,
+            restart: false
         }
     }
 }

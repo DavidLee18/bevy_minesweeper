@@ -1,13 +1,15 @@
 use bevy::{prelude::*, input::{mouse::MouseButtonInput, ElementState}, log};
 
-use crate::{Board, events::TileTriggerEvent};
+use crate::{Board, events::TileTriggerEvent, resources::paused::{self, Paused}};
 
 pub fn input_handling(
     windows: Res<Windows>,
     board: Res<Board>,
     mut button_evr: EventReader<MouseButtonInput>,
     mut tile_trigger_ewr: EventWriter<TileTriggerEvent>,
+    paused: Res<Paused>,
 ) {
+    if paused.0 == true { return; }
     let window = windows.get_primary().unwrap();
 
     for event in button_evr.iter() {
