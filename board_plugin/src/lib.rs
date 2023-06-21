@@ -33,7 +33,6 @@ mod events;
 
 pub struct BoardPlugin<T> {
     pub running_state: T,
-    pub out_state: T,
 }
 
 impl<T: StateData> Plugin for BoardPlugin<T> {
@@ -51,10 +50,11 @@ impl<T: StateData> Plugin for BoardPlugin<T> {
         // We handle uncovering even if the state is inactive
         .add_system_set(
             SystemSet::on_in_stack_update(self.running_state.clone())
-                .with_system(systems::uncover::uncover_tiles),
+                .with_system(systems::uncover::uncover_tiles)
+                .with_system(systems::mark::mark_tiles), // We add our new mark system
         )
         .add_system_set(
-            SystemSet::on_enter(self.out_state.clone())
+            SystemSet::on_exit(self.running_state.clone())
                 .with_system(Self::cleanup_board),
         )
         .add_event::<TileTriggerEvent>()

@@ -26,7 +26,6 @@ fn main() {
     .insert_resource(Paused(false))
     .add_plugin(BoardPlugin {
         running_state: AppState::InGame,
-        out_state: AppState::Out,
     })
     .add_event::<RestartEvent>();
 
