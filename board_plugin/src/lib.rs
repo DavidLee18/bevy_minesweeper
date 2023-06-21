@@ -17,6 +17,9 @@ use bevy_inspector_egui::RegisterInspectable;
 use crate::bounds::Bounds2;
 use crate::components::Coordinates;
 use crate::components::Uncover;
+use crate::events::BoardCompletedEvent;
+use crate::events::BombExplosionEvent;
+use crate::events::TileMarkEvent;
 use crate::events::TileTriggerEvent;
 use crate::resources::Board;
 use crate::resources::BoardPosition;
@@ -54,7 +57,10 @@ impl<T: StateData> Plugin for BoardPlugin<T> {
             SystemSet::on_enter(self.out_state.clone())
                 .with_system(Self::cleanup_board),
         )
-        .add_event::<TileTriggerEvent>();
+        .add_event::<TileTriggerEvent>()
+        .add_event::<TileMarkEvent>()
+        .add_event::<BombExplosionEvent>()
+        .add_event::<BoardCompletedEvent>();
 
         #[cfg(feature = "debug")]
         {
@@ -154,6 +160,7 @@ impl<T> BoardPlugin<T> {
             tile_size,
             covered_tiles,
             entity: board_entity,
+            marked_tiles: Vec::new(),
         });
 
         if options.safe_start {
